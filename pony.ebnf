@@ -1,0 +1,421 @@
+extras              ::= { /[\u0020\u0009\u000D\u000A]/ linecomment nestedcomment }
+
+conflicts           ::= {
+                          { useexpr }
+                          { binop unaryop }
+                          { lambdatypes lambdaparams }
+                          { nominal lambdaparam }
+                          { nominal atom }
+                          { term atom }
+                          { term casepattern }
+                          { term postfix }
+                          { term assignment }
+                          { atom casepattern }
+                          { atom atomtype }
+                          { unaryop casepattern }
+                          { infix consume }
+                          { infix }
+                          { positional parenterm }
+                          { tuple }
+                        }
+
+word                ::= identifier
+
+rules:
+
+  module            ::= string? use* ($ENTITY)*
+
+  use               ::= 'use' (identifier '=')? (string | useffi) ('if' usecondition)?
+
+  useffi            ::= '@' (identifier | string) typeargs '(' params? ')' '?'?
+
+  usecondition      ::= useexpr
+                      | useexpr 'and' useexpr
+                      | useexpr 'or' useexpr
+                      | useexpr 'xor' useexpr
+
+  useexpr           ::= string
+                      | buildplatforms
+                      | 'not' buildplatforms
+                      | 'not' string
+                      | '(' useexpr ')'
+                      | useexpr 'and' buildplatforms
+                      | useexpr 'and' string
+                      | useexpr 'or' buildplatforms
+                      | useexpr 'or' string
+                      | useexpr 'xor' buildplatforms
+                      | useexpr 'xor' string
+ 
+  buildplatforms    ::= 'bsd'
+                      | 'freebsd'
+                      | 'dragonfly'
+                      | 'openbsd'
+                      | 'linux'
+                      | 'osx'
+                      | 'posix'
+                      | 'windows'
+                      | 'x86'
+                      | 'arm'
+                      | 'riscv'
+                      | 'lp64'
+                      | 'llp64'
+                      | 'ilp32'
+                      | 'bigendian'
+                      | 'littleendian'
+                      | 'native128'
+                      | 'debug'
+                      | 'runtimestats'
+                      | 'runtimestatsmessages'
+
+  typeargs          ::= '[' type (',' type)* ']'
+
+  type              ::= atomtype ('->' type)?
+
+  atomtype          ::= 'this'
+                      | cap
+                      | '(' infixtype tupletype? ')'
+                      | nominal
+                      | lambdatype
+                      | barelambdatype
+
+  infixtype         ::= type (uniontype | isecttype)*
+
+  uniontype         ::= '|' type
+
+  isecttype         ::= '&' type
+
+  tupletype         ::= (',' infixtype)+
+
+  nominal           ::= >(((identifier ('.' identifier)?): name) typeargs? (cap | gencap)? ('^' | '!')?)
+
+  gencap            ::= '#read'
+                      | '#send'
+                      | '#share'
+                      | '#alias'
+                      | '#any'
+
+  cap               ::= 'iso'
+                      | 'trn'
+                      | 'ref'
+                      | 'val'
+                      | 'box'
+                      | 'tag'
+
+  lambdatype        ::= ($LAMBDATYPE)
+
+  barelambdatype    ::= '@' ($LAMBDATYPE)
+
+  LAMBDATYPE         := '{' cap? identifier? typeparams? lambdatypes (':' type)? '?'? '}' (cap | gencap)? ('^' | '!')?
+
+  lambdatypes       ::= '(' (type (',' type)*)? ')'
+
+  typeparams        ::= '[' typeparam (',' typeparam)* ']'
+
+  typeparam         ::= (identifier: name) (':' type)? ('=' typearg)?
+
+  typearg           ::= type
+                      | literal
+                      | '#' postfix
+                      | typeargs
+
+  params            ::= (param | '...') (',' (param | '...'))*
+
+  param             ::= (identifier: name) ':' type ('=' term)?
+
+  lambdaparams      ::= '(' (lambdaparam (',' lambdaparam)*)? ')'
+
+  lambdaparam       ::= (identifier: name) (':' type)? ('=' term)?
+
+  lambdacaptures    ::= '(' (lambdacapture | 'this') (',' (lambdacapture | 'this'))* ')'
+
+  lambdacapture     ::= (identifier: name) (':' type)? ('=' term)?
+
+  atom              ::= identifier
+                      | 'this'
+                      | '__loc'
+                      | literal
+                      | tuple
+                      | array
+                      | object
+                      | if
+                      | while
+                      | for
+                      | lambda
+                      | barelambda
+                      | fficall
+
+  term              ::= consume
+                      | recover
+                      | if
+                      | ifdef
+                      | iftype
+                      | try
+                      | while
+                      | repeat
+                      | for
+                      | match
+                      | with
+                      | pattern
+                      | postfix
+                      | infix
+                      | atom
+                      | 2(unaryop term)
+                      | parenterm
+
+  parenterm         ::= '(' rawseq ')'
+
+  rawseq            ::= exprseq
+                      | jump
+
+  exprseq           ::= assignment (semiexpr | nosemi)?
+                      | term (semiexpr | nosemi)?
+
+  nosemi            ::= exprseq
+                      | jump
+
+  semiexpr          ::= ';' (exprseq | jump)
+
+  assignment        ::= <(infix | term) '=' >(term | assignment)
+
+  jump              ::= return
+                      | break
+                      | continue
+                      | error
+                      | compile_intrinsic
+                      | compile_error
+
+  tuple             ::= '(' rawseq ',' rawseq (',' rawseq)* ')'
+
+  return            ::= <('return' rawseq?)
+
+  break             ::= <('break' rawseq?)
+
+  continue          ::= <('continue' rawseq?)
+
+  error             ::= <('error' rawseq?)
+
+  compile_intrinsic ::= <('compile_intrinsic' rawseq?)
+
+  compile_error     ::= <('compile_error' rawseq?)
+
+  idseq             ::= identifier
+                      | '(' identifier (',' identifier)* ')'
+
+  binop             ::= 'and' '?'?
+                      | 'or' '?'?
+                      | 'xor' '?'?
+                      | '+' '?'?
+                      | '-' '?'?
+                      | '*' '?'?
+                      | '/' '?'?
+                      | '%' '?'?
+                      | '%%' '?'?
+                      | '+~' '?'?
+                      | '-~' '?'?
+                      | '*~' '?'?
+                      | '/~' '?'?
+                      | '%~' '?'?
+                      | '%%~' '?'?
+                      | '<<' '?'?
+                      | '>>' '?'?
+                      | '<<~' '?'?
+                      | '>>~' '?'?
+                      | '==' '?'?
+                      | '!=' '?'?
+                      | '<' '?'?
+                      | '<=' '?'?
+                      | '>' '?'?
+                      | '>=' '?'?
+                      | '==~' '?'?
+                      | '!=~' '?'?
+                      | '<~' '?'?
+                      | '<=~' '?'?
+                      | '>~' '?'?
+                      | '>=~' '?'?
+
+  isop              ::= 'is'
+                      | 'isnt'
+
+  unaryop           ::= 'not'
+                      | '-'
+                      | '-~'
+                      | 'addressof'
+                      | 'digestof'
+
+  infix             ::= term binop term
+                      | term isop term
+                      | term 'as' type
+
+  postfix           ::= access
+                      | chain
+                      | partial_apply
+                      | call
+                      | atom typeargs
+
+  access            ::= <3(term '.' term)
+
+  chain             ::= <3(term '.>' term)
+
+  partial_apply     ::= <3(term '~' term)
+
+  call              ::= 4(term typeargs? callparams '?'?)
+
+  callparams        ::= '(' positional? named? ')'
+
+  fficall           ::= '@' (string | identifier) typeargs? callparams '?'?
+
+  lambda            ::= '{' annotations? cap? identifier? typeparams? lambdaparams lambdacaptures? (':' type)? '?'? '=>' rawseq '}' cap?
+
+  barelambda        ::= '@{' annotations? cap? identifier? typeparams? lambdaparams lambdacaptures? (':' type)? '?'? '=>' rawseq '}' cap?
+
+  consume           ::= 'consume' cap? term
+
+  recover           ::= 'recover' annotations? cap? rawseq 'end'
+
+  if                ::= 'if' annotations? rawseq 'then' rawseq ('elseif' annotations? rawseq 'then' rawseq)* else? 'end'
+
+  ifdef             ::= 'ifdef' annotations? usecondition 'then' rawseq ('elseif' annotations? usecondition 'then' rawseq)* else? 'end'
+
+  iftype            ::= 'iftype' annotations? typecondition 'then' rawseq ('elseif' annotations? typecondition 'then' rawseq)* else? 'end'
+
+  try               ::= 'try' annotations? rawseq ('else' annotations? rawseq)? ('then' annotations? rawseq)? 'end'
+
+  while             ::= 'while' annotations? rawseq 'do' rawseq else? 'end'
+
+  repeat            ::= 'repeat' annotations? rawseq 'until' annotations? rawseq else? 'end'
+
+  for               ::= 'for' annotations? (idseq: element) 'in' rawseq 'do' rawseq else? 'end'
+
+  match             ::= 'match' annotations? rawseq case* else? 'end'
+
+  with              ::= 'with' annotations? (idseq: name) '=' rawseq (',' (idseq: name) '=' rawseq)? 'do' rawseq 'end'
+
+  object            ::= 'object' annotations? cap? ('is' type)? field* ($METHOD)* 'end'
+
+  else              ::= 'else' annotations? rawseq
+
+  typecondition     ::= type '<:' type
+
+  case              ::= '|' casepattern? ('if' rawseq)? ('=>' rawseq)?
+
+  pattern           ::= 'var' (identifier: name) (':' type)?
+                      | 'let' (identifier: name) (':' type)?
+                      | 'embed' (identifier: name) (':' type)?
+
+  casepattern       ::= pattern
+                      | literal
+                      | '-' (int | float)
+                      | identifier
+                      | postfix
+                      | tuplepattern
+
+  tuplepattern      ::= '(' casepattern (',' casepattern)* ')'
+
+  positional        ::= rawseq (',' rawseq)*
+
+  named             ::= 'where' namedarg (',' namedarg)*
+
+  namedarg          ::= identifier '=' term
+
+  ENTITY             := typealias
+                      | ($CLASSDEF)
+
+  typealias         ::= 'type' (identifier: name) typeparams? 'is' type string?
+
+  CLASSDEF           := interface
+                      | trait
+                      | primitive
+                      | struct
+                      | class
+                      | actor
+
+  interface         ::= 'interface' ($TRAIT_COMMON)
+
+  trait             ::= 'trait' ($TRAIT_COMMON)
+
+  primitive         ::= 'primitive' ($TRAIT_COMMON)
+
+  struct            ::= 'struct' ($CLASS_COMMON)
+
+  class             ::= 'class' ($CLASS_COMMON)
+
+  actor             ::= 'actor' ($CLASS_COMMON)
+
+  TRAIT_COMMON       := annotations? '@'? cap? (identifier: name) typeparams? ('is' type)? ((string? ($METHOD)*): body)
+
+  CLASS_COMMON       := annotations? '@'? cap? (identifier: name) typeparams? ('is' type)? ((string? field* ($METHOD)*): body)
+
+  field             ::= >(pattern ('=' term)? string?)
+
+  METHOD             := function
+                      | behavior
+                      | constructor
+
+  function          ::= 'fun' $METHOD_COMMON
+
+  behavior          ::= 'be' $METHOD_COMMON
+
+  constructor       ::= 'new' $METHOD_COMMON
+
+  METHOD_COMMON      := annotations? (cap | '@')? (identifier: name) typeparams? methodparams (':' type)? '?'? string? ('=>' (rawseq: body))?
+
+  methodparams      ::= '(' params? ')'
+
+  literal           ::= bool
+                      | int
+                      | float
+                      | string
+
+  array             ::= '[' ('as' type ':')? rawseq? ']'
+
+  annotations       ::= ('\\' identifier (',' identifier)* '\\')
+
+  identifier        ::= @([a-zA-Z_] (($LETTER) | ($DIGIT) | '_' | "'")*)
+
+  bool              ::= 'true'
+                      | 'false'
+
+  int               ::= @(($DIGIT) ($DIGIT | '_')*)
+                      | @('0x' (($HEX) | '_')+)
+                      | @('0b' (($BINARY) | '_')+)
+                      | @("'" ($CHAR_CHAR) "'")
+
+  float             ::= @(($DIGIT) (($DIGIT) | '_')* ('.' ($DIGIT) (($DIGIT) | '_')*)? ($EXP)?)
+
+  string            ::= @('"' ($STRING_CHAR)* '"')
+                      | @('"""' (('"' | '""')? [^"])* '"""' '"'*)
+
+  linecomment       ::= @('//' [^\u000A]* [\u000A])
+
+  nestedcomment     ::= '/*' (nestedcomment | '/' [^*] | '*'* [^*/])* '*'+ '/'
+
+  CHAR_CHAR          := '\\' "'"
+                      | ($CHAR_ESC)
+                      | [^'\\]
+
+  STRING_CHAR        := '\\' '"'
+                      | ($ESC)
+                      | [^"\\]
+
+  EXP                := >(('e' | 'E') ('+' | '-')? (($DIGIT) | '_')+)
+
+  LETTER             := [a-zA-Z]
+
+  BINARY             := [0-1]
+
+  DIGIT              := [0-9]
+
+  HEX                := [0-9a-fA-F]
+
+  ESC                := ($CHAR_ESC)
+                      | ($UNICODE_ESC)
+                      | ($UNICODE2_ESC)
+
+  CHAR_ESC           := '\\' ('a' | 'b' | 'e' | 'f' | 'n' | 'r' | 't' | 'v' | '\\' | '0')
+                      | ($HEX_ESC)
+
+  HEX_ESC            := '\\' 'x' ($HEX) ($HEX)
+
+  UNICODE_ESC        := '\\' 'u' ($HEX) ($HEX) ($HEX) ($HEX)
+
+  UNICODE2_ESC       := '\\' 'U' ($HEX) ($HEX) ($HEX) ($HEX) ($HEX) ($HEX)
